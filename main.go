@@ -2,14 +2,14 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"github.com/gorilla/websocket"
 	"log"
-	//"net/url"
-	"flag"
 	"os"
 	"os/signal"
-	"time"
+	"syscall"
+	//"time"
 )
 
 // FIXME: instead of hardcode, use viper to store such info
@@ -24,15 +24,11 @@ func main() {
 	flag.Parse()
 	log.SetFlags(0)
 
-	interrupt := make(chan os.Signal, 1)
-	signal.Notify(interrupt, os.Interrupt)
-
 	// this is where you paste your api key
 	c, _, err := websocket.DefaultDialer.Dial("wss://streamer.cryptocompare.com/v2?api_key="+apiKey, nil)
 	if err != nil {
 		log.Fatal("dial:", err)
 	}
-
 	jsonObj := JSONParams{Action: "SubAdd", Subs: []string{"8~Binance~BTC~USDT"}}
 	s, _ := json.Marshal(jsonObj)
 	fmt.Println(string(s))
@@ -40,13 +36,19 @@ func main() {
 	if err != nil {
 		log.Fatal("message:", err)
 	}
-
 	defer c.Close()
 
-	done := make(chan struct{})
+	signalChan := make(chan os.Signal, 1)
+
+	signal.Notify(
+		signalChan,
+		syscall.SIGHUP,  // kill -SIGHUP XXXX
+		syscall.SIGINT,  // kill -SIGINT XXXX or Ctrl+c
+		syscall.SIGQUIT, // kill -SIGQUIT XXXX
+	)
 
 	go func() {
-		defer close(done)
+		// FIXME, need waitgroup here
 		for {
 			_, message, err := c.ReadMessage()
 			if err != nil {
@@ -57,24 +59,30 @@ func main() {
 		}
 	}()
 
-	// FIXME: it is not good for graceful shutdown
-	for {
-		select {
-		case <-done:
-			return
-		case <-interrupt:
-			log.Println("interrupt")
+	// received termination signal, perform graceful shutdown here
+	<-signalChan
+	log.Println("interrupt")
 
-			err := c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
-			if err != nil {
-				log.Println("write close:", err)
-				return
-			}
+	// FIXME:  fire the termination signal to all worker wait for the death
+	if err := c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "")); err != nil {
+		log.Println("write close:", err)
+		return
+	}
+
+	/*
+		// FIXME: it is not good for graceful shutdown
+		for {
 			select {
 			case <-done:
-			case <-time.After(time.Second):
+				return
+			case <-interrupt:
+
+				select {
+				case <-done:
+				case <-time.After(time.Second):
+				}
+				return
 			}
-			return
 		}
-	}
+	*/
 }
