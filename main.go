@@ -59,10 +59,12 @@ func main() {
 
 	temp := atomicBool(0)
 	isClosed := &temp
+
+	orderBook := NewOrderBook()
 	wg := &sync.WaitGroup{}
 
 	wg.Add(1)
-	go wssReceiver(c, isClosed, wg)
+	go wssReceiver(c, orderBook, isClosed, wg)
 
 	// received termination signal, perform graceful shutdown here
 	<-signalChan
