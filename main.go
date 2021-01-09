@@ -4,12 +4,15 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/gorilla/websocket"
 	"log"
 	"os"
 	"os/signal"
+	"sync"
+	"sync/atomic"
 	"syscall"
 	//"time"
+
+	"github.com/gorilla/websocket"
 )
 
 // FIXME: instead of hardcode, use viper to store such info
@@ -19,6 +22,13 @@ type JSONParams struct {
 	Action string   `json:"action"`
 	Subs   []string `json:"subs"`
 }
+
+// such bool burrowed from go std lib
+type atomicBool int32
+
+func (b *atomicBool) isTrue() bool { return atomic.LoadInt32((*int32)(b)) != 0 }
+func (b *atomicBool) setTrue()     { atomic.StoreInt32((*int32)(b), 1) }
+func (b *atomicBool) setFalse()    { atomic.StoreInt32((*int32)(b), 0) }
 
 func main() {
 	flag.Parse()
@@ -47,42 +57,23 @@ func main() {
 		syscall.SIGQUIT, // kill -SIGQUIT XXXX
 	)
 
-	go func() {
-		// FIXME, need waitgroup here
-		for {
-			_, message, err := c.ReadMessage()
-			if err != nil {
-				log.Println("read:", err)
-				return
-			}
-			log.Printf("recv: %s", message)
-		}
-	}()
+	temp := atomicBool(0)
+	isClosed := &temp
+	wg := &sync.WaitGroup{}
+
+	go wssReceiver(c, isClosed, wg)
 
 	// received termination signal, perform graceful shutdown here
 	<-signalChan
 	log.Println("interrupt")
 
-	// FIXME:  fire the termination signal to all worker wait for the death
+	// fire the termination message in wss
 	if err := c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "")); err != nil {
 		log.Println("write close:", err)
 		return
 	}
+	// fire the termination signal
+	isClosed.setTrue()
 
-	/*
-		// FIXME: it is not good for graceful shutdown
-		for {
-			select {
-			case <-done:
-				return
-			case <-interrupt:
-
-				select {
-				case <-done:
-				case <-time.After(time.Second):
-				}
-				return
-			}
-		}
-	*/
+	// FIXME: wait for worker die
 }
