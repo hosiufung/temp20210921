@@ -65,6 +65,7 @@ func main() {
 
 	wg.Add(1)
 	go wssReceiver(c, orderBook, isClosed, wg)
+	go printMidPrice(orderBook)
 
 	// received termination signal, perform graceful shutdown here
 	<-signalChan

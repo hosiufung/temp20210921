@@ -99,7 +99,7 @@ func (ob *OrderBook) HandleOrder(order Order) {
 	}
 }
 
-func (ob *OrderBook) DisplayMidPrice() (midPrioce float64, ok bool) {
+func (ob *OrderBook) DisplayMidPrice() (midPrice float64, ok bool) {
 	ob.rwLock.RLock()
 	defer ob.rwLock.RUnlock()
 
