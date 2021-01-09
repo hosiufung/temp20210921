@@ -61,19 +61,22 @@ func main() {
 	isClosed := &temp
 	wg := &sync.WaitGroup{}
 
+	wg.Add(1)
 	go wssReceiver(c, isClosed, wg)
 
 	// received termination signal, perform graceful shutdown here
 	<-signalChan
 	log.Println("interrupt")
 
+	// fire the termination signal
+	isClosed.setTrue()
+
 	// fire the termination message in wss
 	if err := c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "")); err != nil {
 		log.Println("write close:", err)
 		return
 	}
-	// fire the termination signal
-	isClosed.setTrue()
 
-	// FIXME: wait for worker die
+	// wait for worker die
+	wg.Wait()
 }
