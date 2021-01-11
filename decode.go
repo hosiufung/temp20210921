@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"sync"
-	"time"
 
 	"log"
 
@@ -31,12 +30,10 @@ func wssReceiver(c *websocket.Conn, orderBook *OrderBook, isClosed *atomicBool, 
 
 // FIXME: need to care about graceful shutdown
 func printMidPrice(orderBook *OrderBook) {
-	// FIXME: need to use better method to have precise time
 	for {
+		sleepToNearest15sec()
+
 		midPrice, ok := orderBook.DisplayMidPrice()
 		log.Println(`midPrice, ok`, midPrice, ok)
-
-		time.Sleep(1 * time.Second)
 	}
-
 }

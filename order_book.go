@@ -51,6 +51,10 @@ func (ob *OrderBook) HandleOrder(order Order) {
 	ob.rwLock.Lock()
 	defer ob.rwLock.Unlock()
 
+	if order.Type != "8" {
+		return
+	}
+
 	//The side is 0 for BID and 1 for ASK
 	//Side int `json:"SIDE"`
 	var target []Order

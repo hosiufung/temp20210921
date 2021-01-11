@@ -74,12 +74,13 @@ func main() {
 	// fire the termination signal
 	isClosed.setTrue()
 
+	// wait for worker die first
+	wg.Wait()
+
 	// fire the termination message in wss
 	if err := c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "")); err != nil {
 		log.Println("write close:", err)
 		return
 	}
 
-	// wait for worker die
-	wg.Wait()
 }
